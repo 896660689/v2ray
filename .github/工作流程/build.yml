@@ -1,0 +1,44 @@
+name: build
+
+on:
+  push:
+    branches: [master]
+  #release:
+    #types: [created]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: init
+        run: |
+          # upx 3.95 for mips wait for 4.0 fix https://github.com/upx/upx/issues/342
+          sudo apt-get update
+          sudo apt-get install -y upx
+          sudo rm -rf /usr/bin/go*
+          sudo rm -rf /usr/local/go
+          wget https://dl.google.com/go/go1.14.4.linux-amd64.tar.gz
+          sudo tar -C /usr/local -xzf go1.14.4.linux-amd64.tar.gz
+          wget https://github.com/upx/upx/releases/download/v3.96/upx-3.96-amd64_linux.tar.xz
+          tar xf upx-3.96-amd64_linux.tar.xz
+          mv upx-3.96-amd64_linux/upx .
+          rm -rf upx-3.96-amd64_linux*
+      - name: build
+        run: |
+          mkdir tmp
+          mkdir bin
+          # Do not use "--depth=1" due to tags
+          wget https://github.com/v2ray/v2ray-core/releases/download/v4.25.0/v2ray-linux-mipsle.zip
+          unzip v2ray-linux-mipsle.zip -d v2ray
+          cd v2ray
+          command -v upx >/dev/null 2>&1 || { echo >&2 "I require upx but it's not installed.  installing."; sudo install upx; }
+          upx -k --best --lzma ./v2ray
+          upx -k --best --lzma ./v2ctl
+          mkdir v2c
+          cp config.json v2c
+          tar -czvf v2ray.tar.gz v2ray
+      - name: Upload artifact
+        uses: actions/upload-artifact@master
+        with:
+          name: v2ray.tar.gz
+          path: ./v2ray.tar.gz
